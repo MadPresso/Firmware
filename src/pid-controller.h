@@ -7,8 +7,8 @@ private:
   unsigned long prevMillis;
   float integral;
   float prevError;
-  float target;
   float outputScale;
+  float target;
   float kp, ki, kd;
 
 public:

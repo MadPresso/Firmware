@@ -1,9 +1,8 @@
-#include "dimmer.h"
+#include <Arduino.h>
 
-#define ARRAY_SIZE(a) sizeof(a) / sizeof((a)[0])
+#include "triac-output.h"
 
 // Generated with acos.rb
-
 static const uint8_t acosLUT[256] = {
   0xff, 0xfe, 0xfd, 0xfd, 0xfc, 0xfb, 0xfb, 0xfa,
   0xf9, 0xf9, 0xf8, 0xf7, 0xf7, 0xf6, 0xf6, 0xf5,
@@ -39,67 +38,34 @@ static const uint8_t acosLUT[256] = {
   0x27, 0x25, 0x22, 0x1f, 0x1b, 0x17, 0x13, 0x00,
 };
 
-Dimmer::Dimmer(int _gpio) {
-  gpio = _gpio;
-  avgPeriod = 0;
-  timingsTaken = 0;
-  prevMicros = 0;
-
+TriacOutput::TriacOutput(int gpio) : gpio(gpio), power(0.f), counter(0)  {
   pinMode(gpio, OUTPUT);
   digitalWrite(gpio, LOW);
-
-  value = 0.f;
-  counter = 0;
 }
 
-void Dimmer::zeroCross(bool falling) {
+void TriacOutput::zeroCross(bool falling) {
   digitalWrite(gpio, LOW);
-
-  //
-  // Collect a number of measurements for the period from the rising to the falling
-  // slope of the zero detect signal. Once we have enough information, calculate the
-  // average mean value to see what the window is in which we may schedule the Triac
-  // ignition event.
-  //
-
-  if (timingsTaken < ARRAY_SIZE(timings)) {
-    if (falling) {
-      if (prevMicros)
-        timings[timingsTaken++] = micros() - prevMicros;
-    } else {
-      prevMicros = micros();
-    }
-
-    return;
-  }
-
-  if (avgPeriod == 0) {
-    for (unsigned i = 0; i < ARRAY_SIZE(timings); i++)
-      avgPeriod += timings[i];
-
-    avgPeriod /= ARRAY_SIZE(timings);
-  }
 
   if (falling)
     counter = 0;
   else
-    counter = acosLUT[uint8_t(value * 256.0)];
+    counter = acosLUT[uint8_t(power * 256.0)];
 }
 
-void Dimmer::setValue(float _value)
+void TriacOutput::setPower(float newPower)
 {
-  if (_value < 0.f)
-    _value = 0.f;
+  if (newPower < 0.f)
+    newPower = 0.f;
 
-  if (_value > 0.f)
-    _value = 1.f;
+  if (newPower > 1.f)
+    newPower = 1.f;
 
   noInterrupts();
-  value = _value;
+  power = newPower;
   interrupts();
 }
 
-void ICACHE_RAM_ATTR Dimmer::timerHandler()
+void ICACHE_RAM_ATTR TriacOutput::timerHandler()
 {
   if (counter > 0 && counter-- == 0)
     digitalWrite(gpio, HIGH);

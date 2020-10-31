@@ -1,31 +1,21 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <ESP8266WiFi.h>
-#include <ESP8266TimerInterrupt.h>
 #include <ESP8266WebServer.h>
-#include <ESP8266_ISR_Timer.h>
 #include <LittleFS.h>
 
+#include "ac-power.h"
 #include "config.h"
 #include "credentials.h"
-#include "dimmer.h"
 #include "pid-controller.h"
 #include "pins.h"
 #include "time-series.h"
 
 ESP8266WebServer httpServer(80);
-ESP8266Timer timer;
-
-Dimmer heaterDimmer(PIN_HEATER_TRIAC);
-Dimmer pumpDimmer(PIN_PUMP_TRIAC);
 
 PIDController pid(.05f);
 TimeSeries temperatureHistory;
 Config config;
-
-void setValve(bool on) {
-  digitalWrite(PIN_VALVE_TRIAC, on);
-}
 
 float readTemperature() {
   int value = analogRead(PIN_TEMPERATURE_SENSOR);
@@ -34,23 +24,11 @@ float readTemperature() {
   return float(mV) / 10.0;
 }
 
-void ICACHE_RAM_ATTR timerHandler(void) {
-  heaterDimmer.timerHandler();
-  pumpDimmer.timerHandler();
-}
-
-void ICACHE_RAM_ATTR zeroCrossHandler(void) {
-  bool falling = digitalRead(PIN_ZC_DETECT);
-
-  heaterDimmer.zeroCross(falling);
-  pumpDimmer.zeroCross(falling);
-}
-
 void ICACHE_RAM_ATTR shotSwitchHandler(void) {
   bool on = digitalRead(PIN_SHOT_SENSOR);
 
   setValve(on);
-  pumpDimmer.setValue(on ? 255 : 0);
+  setPumpPower(on ? 255 : 0);
 }
 
 void ICACHE_RAM_ATTR setHeaterTargetTenperature(void) {
@@ -84,7 +62,7 @@ void httpGetStatus(void) {
   JsonObject object = doc.to<JsonObject>();
   object["temperature"] = readTemperature();
   object["targetTemperature"] = pid.currentTarget();
-  object["heaterPercentage"] = heaterDimmer.getValue() * 100.f;
+  object["heaterPowerPercentage"] = getHeaterPower() * 100.f;
 
   String output;
   serializeJsonPretty(doc, output);
@@ -106,11 +84,10 @@ void setup() {
 
   Serial.println("CPU Frequency = " + String(F_CPU / 1000000) + " MHz");
 
-  attachInterrupt(digitalPinToInterrupt(PIN_ZC_DETECT), zeroCrossHandler, CHANGE);
   attachInterrupt(digitalPinToInterrupt(PIN_SHOT_SENSOR), shotSwitchHandler, CHANGE);
   attachInterrupt(digitalPinToInterrupt(PIN_STEAM_SENSOR), steamSwitchHandler, CHANGE);
 
-  timer.attachInterrupt(25600, timerHandler);
+  initACPower();
 
   LittleFS.begin();
 
@@ -142,7 +119,7 @@ void loop() {
   if (WiFi.status() == WL_CONNECTED && wifiConnecting) {
     Serial.println("WiFi connection successful");
     Serial.print("The IP Address of ESP8266 Module is: ");
-    Serial.print(WiFi.localIP());// Print the IP address
+    Serial.print(WiFi.localIP());
     wifiConnecting = false;
   }
 
@@ -152,7 +129,7 @@ void loop() {
   if (now - lastMeasurement > config.pollingIntervalMs) {
     float temperature = readTemperature();
     float heaterValue = pid.compute(temperature);
-    heaterDimmer.setValue(heaterValue);
+    setHeaterPower(heaterValue);
     temperatureHistory.push(temperature);
     lastMeasurement = now;
   }
