@@ -3,11 +3,7 @@
 
 // See https://en.wikipedia.org/wiki/PID_controller
 
-PIDController::PIDController(int min, int max, int scale) {
-  outputMin = min;
-  outputMax = max;
-  outputScale = scale;
-  target = 0.f;
+PIDController::PIDController(float scale) : outputScale(scale), target(0.f) {
   reset();
 }
 
@@ -55,7 +51,7 @@ int PIDController::compute(float measured) {
 
   error = target - measured;
   integral += error * dt;
-  CLAMP(integral, outputMin, outputMax);
+  // CLAMP(integral, 0.f, 1.f);
 
   derivative = (error - prevError) / dt;
   val = (kp * error) + (ki * integral) + (kd * derivative);
@@ -63,9 +59,8 @@ int PIDController::compute(float measured) {
 //  printf("[measured %f, prevError %f] (kp (%f) * error (%f)) + (ki (%f) * integral (%f)) + (kd (%f) * derivative (%f)) = %f\n",
 //         measured, prevError, kp, error, ki, integral, kd, derivative, val);
 
-  val /= outputScale;
-  CLAMP(val, outputMin, outputMax);
+  val *= outputScale;
   prevError = error;
 
-  return (unsigned) val;
+  return val;
 }

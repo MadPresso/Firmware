@@ -8,11 +8,11 @@ private:
   float integral;
   float prevError;
   float target;
+  float outputScale;
   float kp, ki, kd;
-  float outputMin, outputMax, outputScale;
 
 public:
-  PIDController(int outputMin, int outputMax, int outputScale);
+  PIDController(float outputScale);
 
   void reset();
   void setTarget(float target);

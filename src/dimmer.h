@@ -4,7 +4,7 @@
 
 class Dimmer {
 private:
-  unsigned int value;
+  float value;
   unsigned int counter;
   unsigned long prevMicros;
   unsigned long timings[10];
@@ -17,7 +17,7 @@ public:
   Dimmer(int gpio);
 
   void zeroCross(bool falling);
-  void setValue(uint8_t value);
-  uint8_t getValue() { return value; }
+  void setValue(float value);
+  float getValue() { return value; }
   void timerHandler();
 };

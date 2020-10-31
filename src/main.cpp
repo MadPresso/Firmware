@@ -16,13 +16,10 @@
 ESP8266WebServer httpServer(80);
 ESP8266Timer timer;
 
-static const int timerFreq = 25600;
-static const int timerIntervalMs = 1000000 / timerFreq;
-
 Dimmer heaterDimmer(PIN_HEATER_TRIAC);
 Dimmer pumpDimmer(PIN_PUMP_TRIAC);
 
-PIDController pid(0, 255, 20);
+PIDController pid(.05f);
 TimeSeries temperatureHistory;
 Config config;
 
@@ -87,7 +84,7 @@ void httpGetStatus(void) {
   JsonObject object = doc.to<JsonObject>();
   object["temperature"] = readTemperature();
   object["targetTemperature"] = pid.currentTarget();
-  object["heaterPercentage"] = heaterDimmer.getValue();
+  object["heaterPercentage"] = heaterDimmer.getValue() * 100.f;
 
   String output;
   serializeJsonPretty(doc, output);
@@ -95,9 +92,10 @@ void httpGetStatus(void) {
 }
 
 void httpGetTemperatures(void) {
-  String output;
-  temperatureHistory.toJson(output);
-  httpServer.send(200, "application/json", output);
+  String *output = new String;
+  temperatureHistory.toJson(*output);
+  httpServer.send(200, "application/json", *output);
+  delete output;
 }
 
 void setup() {
@@ -112,7 +110,7 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(PIN_SHOT_SENSOR), shotSwitchHandler, CHANGE);
   attachInterrupt(digitalPinToInterrupt(PIN_STEAM_SENSOR), steamSwitchHandler, CHANGE);
 
-  timer.attachInterrupt(timerFreq, timerHandler);
+  timer.attachInterrupt(25600, timerHandler);
 
   LittleFS.begin();
 
@@ -127,6 +125,8 @@ void setup() {
   httpServer.on("/v1/temperatures", HTTP_GET, httpGetTemperatures);
   httpServer.serveStatic("/", LittleFS, "/webroot/", "");
   httpServer.begin();
+
+  Serial.println("Init completed");
 }
 
 static bool wifiConnecting = false;
@@ -151,7 +151,7 @@ void loop() {
   unsigned int now = millis();
   if (now - lastMeasurement > config.pollingIntervalMs) {
     float temperature = readTemperature();
-    int heaterValue = pid.compute(temperature);
+    float heaterValue = pid.compute(temperature);
     heaterDimmer.setValue(heaterValue);
     temperatureHistory.push(temperature);
     lastMeasurement = now;

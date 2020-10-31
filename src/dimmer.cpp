@@ -48,7 +48,7 @@ Dimmer::Dimmer(int _gpio) {
   pinMode(gpio, OUTPUT);
   digitalWrite(gpio, LOW);
 
-  value = acosLUT[0];
+  value = 0.f;
   counter = 0;
 }
 
@@ -83,11 +83,17 @@ void Dimmer::zeroCross(bool falling) {
   if (falling)
     counter = 0;
   else
-    counter = acosLUT[value];
+    counter = acosLUT[uint8_t(value * 256.0)];
 }
 
-void Dimmer::setValue(uint8_t _value)
+void Dimmer::setValue(float _value)
 {
+  if (_value < 0.f)
+    _value = 0.f;
+
+  if (_value > 0.f)
+    _value = 1.f;
+
   noInterrupts();
   value = _value;
   interrupts();
