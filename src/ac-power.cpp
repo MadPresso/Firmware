@@ -6,47 +6,45 @@
 #include "pins.h"
 #include "triac-output.h"
 
-ESP8266Timer timer;
-
-static unsigned int timerCounter = 0;
-static unsigned int timerCounterPerPhase = 0;
-static bool firstRisingEdge = false;
+static ESP8266Timer timer;
+static int timerWaitZC = 100;
+static unsigned long lastRisingZC = 0;
+static int fallingCount = 0;
+static int risingCount = 0;
 
 static TriacOutput heaterTriacOutput(PIN_HEATER_TRIAC);
 static TriacOutput pumpTriacOutput(PIN_PUMP_TRIAC);
 
 void ICACHE_RAM_ATTR timerHandler(void) {
-  timerCounter++;
-
-  if (timerCounterPerPhase < 256)
-    return;
-
-  if (timerCounter % (timerCounterPerPhase / 256) == 0) {
-    heaterTriacOutput.timerHandler();
-    pumpTriacOutput.timerHandler();
-  }
+  heaterTriacOutput.timerHandler();
+  pumpTriacOutput.timerHandler();
 }
 
 void ICACHE_RAM_ATTR zeroCrossHandler(void) {
-  bool falling = digitalRead(PIN_ZC_DETECT);
+  bool rising = digitalRead(PIN_ZC_DETECT) == HIGH;
 
-  heaterTriacOutput.zeroCross(falling);
-  pumpTriacOutput.zeroCross(falling);
+  heaterTriacOutput.zeroCross(rising);
+  pumpTriacOutput.zeroCross(rising);
 
-  if (falling) {
-    if (firstRisingEdge) {
-      timerCounterPerPhase = timerCounter;
+  if (timerWaitZC > 0) {
+    unsigned long now = micros();
+
+    if (rising) {
+      lastRisingZC = now;
+    } else if (--timerWaitZC == 0) {
+      unsigned long phaseLength = now - lastRisingZC;
+      unsigned int frequency = (TRIAC_TICKS*1000000) / phaseLength;
+
+      timer.setFrequency(frequency, timerHandler);
+      Serial.printf("Set timer frequency to %d Hz\n", frequency);
     }
-  } else {
-    firstRisingEdge = true;
-    timerCounter = 0;
   }
 }
 
 void initACPower() {
-    // Run timer as fast as possible
-  timer.attachInterruptInterval(1, timerHandler);
+  pinMode(PIN_ZC_DETECT, INPUT);
   attachInterrupt(digitalPinToInterrupt(PIN_ZC_DETECT), zeroCrossHandler, CHANGE);
+
   pinMode(PIN_VALVE_TRIAC, OUTPUT);
   digitalWrite(PIN_VALVE_TRIAC, LOW);
 }
@@ -68,5 +66,5 @@ float getPumpPower() {
 }
 
 void setValve(bool on) {
-  digitalWrite(PIN_VALVE_TRIAC, on);
+  digitalWrite(PIN_VALVE_TRIAC, on ? HIGH : LOW);
 }

@@ -3,7 +3,7 @@
 #include "triac-output.h"
 
 // Generated with acos.rb
-static const uint8_t acosLUT[256] = {
+static const uint8_t acosLUT[TRIAC_TICKS] = {
   0xff, 0xfe, 0xfd, 0xfd, 0xfc, 0xfb, 0xfb, 0xfa,
   0xf9, 0xf9, 0xf8, 0xf7, 0xf7, 0xf6, 0xf6, 0xf5,
   0xf4, 0xf4, 0xf3, 0xf2, 0xf2, 0xf1, 0xf0, 0xf0,
@@ -35,38 +35,38 @@ static const uint8_t acosLUT[256] = {
   0x51, 0x50, 0x4e, 0x4d, 0x4b, 0x4a, 0x49, 0x47,
   0x46, 0x44, 0x43, 0x41, 0x3f, 0x3e, 0x3c, 0x3a,
   0x38, 0x37, 0x35, 0x33, 0x31, 0x2e, 0x2c, 0x2a,
-  0x27, 0x25, 0x22, 0x1f, 0x1b, 0x17, 0x13, 0x00,
+  0x27, 0x25, 0x22, 0x1f, 0x1b, 0x17, 0x13, 0x01,
 };
 
-TriacOutput::TriacOutput(int gpio) : gpio(gpio), power(0.f), counter(0)  {
+TriacOutput::TriacOutput(int gpio) : gpio(gpio), counter(0), value(0)  {
   pinMode(gpio, OUTPUT);
   digitalWrite(gpio, LOW);
 }
 
-void TriacOutput::zeroCross(bool falling) {
+void TriacOutput::zeroCross(bool rising) {
   digitalWrite(gpio, LOW);
 
-  if (falling)
-    counter = 0;
+  if (rising)
+    counter = value;
   else
-    counter = acosLUT[uint8_t(power * 256.0)];
+    counter = 0;
 }
 
-void TriacOutput::setPower(float newPower)
+void TriacOutput::setPower(float power)
 {
-  if (newPower < 0.f)
-    newPower = 0.f;
+  if (power < 0.f)
+    power = 0.f;
 
-  if (newPower > 1.f)
-    newPower = 1.f;
+  if (power > 1.f)
+    power = 1.f;
 
   noInterrupts();
-  power = newPower;
+  value = acosLUT[uint8_t(power * float(TRIAC_TICKS-1))];
   interrupts();
 }
 
 void ICACHE_RAM_ATTR TriacOutput::timerHandler()
 {
-  if (counter > 0 && counter-- == 0)
+  if (counter > 0 && --counter == 0)
     digitalWrite(gpio, HIGH);
 }

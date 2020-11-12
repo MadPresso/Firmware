@@ -31,7 +31,7 @@ void ICACHE_RAM_ATTR shotSwitchHandler(void) {
   setPumpPower(on ? 255 : 0);
 }
 
-void ICACHE_RAM_ATTR setHeaterTargetTenperature(void) {
+void ICACHE_RAM_ATTR setHeaterTargetTemperature(void) {
   bool steam = digitalRead(PIN_STEAM_SENSOR);
 
   if (steam)
@@ -41,7 +41,7 @@ void ICACHE_RAM_ATTR setHeaterTargetTenperature(void) {
 }
 
 void ICACHE_RAM_ATTR steamSwitchHandler(void) {
-  setHeaterTargetTenperature();
+  setHeaterTargetTemperature();
 }
 
 // HTTP callbacks
@@ -78,7 +78,6 @@ void httpGetTemperatures(void) {
 
 void setup() {
   Serial.begin(115200);
-  while (!Serial);
   
   delay(2000);
 
@@ -89,12 +88,15 @@ void setup() {
 
   initACPower();
 
+  setValve(1);
+  setHeaterPower(0.5);
+
   LittleFS.begin();
 
   config.read(LittleFS);
 
   pid.setParams(config.pidP, config.pidI, config.pidD);
-  setHeaterTargetTenperature();
+  setHeaterTargetTemperature();
 
   httpServer.on("/v1/config", HTTP_GET, httpGetConfig);
   httpServer.on("/v1/config", HTTP_POST, httpPostConfig);
@@ -109,28 +111,41 @@ void setup() {
 static bool wifiConnecting = false;
 static int lastMeasurement = 0;
 
+static float dimStep = 0.01;
+static float dimValue = 0.0;
+static int lastDim = 0;
+
 void loop() {
-  if (WiFi.status() != WL_CONNECTED && !wifiConnecting) {
-    Serial.println("Connecting to WiFi");
-    WiFi.begin(WIFI_SSID, WIFI_PASS);
-    wifiConnecting = true;
-  }
+  // if (WiFi.status() != WL_CONNECTED && !wifiConnecting) {
+  //   Serial.println("Connecting to WiFi");
+  //   WiFi.begin(WIFI_SSID, WIFI_PASS);
+  //   wifiConnecting = true;
+  // }
 
-  if (WiFi.status() == WL_CONNECTED && wifiConnecting) {
-    Serial.println("WiFi connection successful");
-    Serial.print("The IP Address of ESP8266 Module is: ");
-    Serial.print(WiFi.localIP());
-    wifiConnecting = false;
-  }
+  // if (WiFi.status() == WL_CONNECTED && wifiConnecting) {
+  //   Serial.println("WiFi connection successful");
+  //   Serial.print("The IP Address of ESP8266 Module is: ");
+  //   Serial.print(WiFi.localIP());
+  //   wifiConnecting = false;
+  // }
 
-  httpServer.handleClient();
+  // httpServer.handleClient();
 
   unsigned int now = millis();
-  if (now - lastMeasurement > config.pollingIntervalMs) {
-    float temperature = readTemperature();
-    float heaterValue = pid.compute(temperature);
-    setHeaterPower(heaterValue);
-    temperatureHistory.push(temperature);
-    lastMeasurement = now;
+  // if (now - lastMeasurement > config.pollingIntervalMs) {
+  //   float temperature = readTemperature();
+  //   float heaterValue = pid.compute(temperature);
+  //   setHeaterPower(heaterValue);
+  //   temperatureHistory.push(temperature);
+  //   lastMeasurement = now;
+  // }
+
+  if (now - lastDim > 20) {
+    setHeaterPower(dimValue);
+    dimValue += dimStep;
+    if (dimValue >= 1.0 || dimValue <= 0) {
+      dimStep *= -1;
+    }
+    lastDim = now;
   }
 }
