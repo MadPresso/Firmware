@@ -3,7 +3,7 @@
 #include "config.h"
 
 static const char *filename = "config.json";
-static const size_t CAPACITY = JSON_OBJECT_SIZE(6);
+static const size_t CAPACITY = JSON_OBJECT_SIZE(16);
 
 Config::Config() {
   // default config
@@ -12,11 +12,13 @@ Config::Config() {
   pidD = 128;
   pollingIntervalMs = 1000;
 
-  brewTemperature = 100.0;
+  brewTemperature = 42.0;
   steamTemperature = 130.0;
+
+  pumpControlEnabled = true;
 }
 
-bool Config::read(FS &fs) {
+bool ICACHE_RAM_ATTR Config::read(FS &fs) {
   File f = fs.open(filename, "r");
 
   if (!f.isFile())
@@ -30,32 +32,53 @@ bool Config::read(FS &fs) {
   return ret;
 }
 
-bool Config::write(FS &fs) {
-//  File f = fs.open(filename, "w");
-//
-//  if (!f.isFile())
-//    return false;
-//
-//  String output;
-//  toJson(output);
-//  f.write(output);
-//  f.close();
-//
+ICACHE_RAM_ATTR bool Config::write(FS &fs) {
+  File f = fs.open(filename, "w");
+
+  if (!f.isFile())
+    return false;
+
+  String output;
+  toJson(output);
+  f.write(output.c_str());
+
+  f.close();
+
   return true;
 }
 
-bool Config::fromJson(String &s) {
-  StaticJsonDocument<CAPACITY> doc;
+bool Config::fromJson(const String &s) {
+  DynamicJsonDocument doc(1024);
 
-  if (deserializeJson(doc, s) != DeserializationError::Ok)
+  auto error = deserializeJson(doc, s);
+
+  if (error != DeserializationError::Ok) {
+    Serial.printf("Cannot deserialize JSON: %s\n", error.c_str());
     return false;
+  }
+
+  // pollingIntervalMs = doc["pollingIntervalMs"];
+
+  brewTemperature = doc["brewTemperature"];
+  steamTemperature = doc["steamTemperature"];
+
+  shotTimerEnabled = doc["shotTimerEnabled"];
+  shotTimerSeconds = doc["shotTimerSeconds"];
+
+  preInfusionEnabled = doc["preInfusionEnabled"];
+  preInfusionValveClosed = doc["preInfusionValveClosed"];
+  preInfusionPumpSeconds = doc["preInfusionPumpSeconds"];
+  preInfusionPauseSeconds = doc["preInfusionPauseSeconds"];
+
+  pumpControlEnabled = doc["pumpControlEnabled"];
+  pumpControlPercentageStart = doc["pumpControlPercentageStart"];
+  pumpControlPercentageEnd = doc["pumpControlPercentageEnd"];
+  pumpControlSeconds = doc["pumpControlSeconds"];
 
   pidP = doc["pidP"];
   pidI = doc["pidI"];
   pidD = doc["pidD"];
-  pollingIntervalMs = doc["pollingIntervalMs"];
-  brewTemperature = doc["brewTemperature"];
-  steamTemperature = doc["steamTemperature"];
+  pidShotBoostPercentage = doc["pidShotBoostPercentage"];
 
   return true;
 }
@@ -64,13 +87,28 @@ void Config::toJson(String &s) {
   StaticJsonDocument<CAPACITY> doc;
 
   JsonObject object = doc.to<JsonObject>();
-  object["pidP"] = pidP;
-  object["pidI"] = pidI;
-  object["pidD"] = pidD;
-  object["pollingIntervalMs"] = pollingIntervalMs;
+  // object["pollingIntervalMs"] = pollingIntervalMs;
+
   object["brewTemperature"] = brewTemperature;
   object["steamTemperature"] = steamTemperature;
 
+  object["shotTimerEnabled"] = shotTimerEnabled;
+  object["shotTimerSeconds"] = shotTimerSeconds;
+
+  object["preInfusionEnabled"] = preInfusionEnabled;
+  object["preInfusionValveClosed"] = preInfusionValveClosed;
+  object["preInfusionPumpSeconds"] = preInfusionPumpSeconds;
+  object["preInfusionPauseSeconds"] = preInfusionPauseSeconds;
+
+  object["pumpControlEnabled"] = pumpControlEnabled;
+  object["pumpControlPercentageStart"] = pumpControlPercentageStart;
+  object["pumpControlPercentageEnd"] = pumpControlPercentageEnd;
+  object["pumpControlSeconds"] = pumpControlSeconds;
+
+  object["pidP"] = pidP;
+  object["pidI"] = pidI;
+  object["pidD"] = pidD;
+  object["pidShotBoostPercentage"] = pidShotBoostPercentage;
+
   serializeJsonPretty(doc, s);
 }
-

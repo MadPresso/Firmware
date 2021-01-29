@@ -2,10 +2,10 @@
 
 void initACPower();
 
-void setHeaterPower(float value);
-float getHeaterPower();
+void setHeaterPower(uint8_t value);
+uint8_t getHeaterPower();
 
-void setPumpPower(float value);
-float getPumpPower();
+void setPumpPower(uint8_t value);
+uint8_t getPumpPower();
 
 void setValve(bool on);

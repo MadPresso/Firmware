@@ -43,7 +43,7 @@ TriacOutput::TriacOutput(int gpio) : gpio(gpio), counter(0), value(0)  {
   digitalWrite(gpio, LOW);
 }
 
-void TriacOutput::zeroCross(bool rising) {
+void ICACHE_RAM_ATTR TriacOutput::zeroCross(bool rising) {
   digitalWrite(gpio, LOW);
 
   if (rising)
@@ -52,17 +52,13 @@ void TriacOutput::zeroCross(bool rising) {
     counter = 0;
 }
 
-void TriacOutput::setPower(float power)
+void TriacOutput::setPower(uint8_t power)
 {
-  if (power < 0.f)
-    power = 0.f;
-
-  if (power > 1.f)
-    power = 1.f;
-
   noInterrupts();
-  value = acosLUT[uint8_t(power * float(TRIAC_TICKS-1))];
+  value = acosLUT[power];
   interrupts();
+
+  currentPower = power;
 }
 
 void ICACHE_RAM_ATTR TriacOutput::timerHandler()

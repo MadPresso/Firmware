@@ -7,10 +7,8 @@
 #include "triac-output.h"
 
 static ESP8266Timer timer;
-static int timerWaitZC = 100;
+static int timerWaitZC = 5;
 static unsigned long lastRisingZC = 0;
-static int fallingCount = 0;
-static int risingCount = 0;
 
 static TriacOutput heaterTriacOutput(PIN_HEATER_TRIAC);
 static TriacOutput pumpTriacOutput(PIN_PUMP_TRIAC);
@@ -49,19 +47,19 @@ void initACPower() {
   digitalWrite(PIN_VALVE_TRIAC, LOW);
 }
 
-void setHeaterPower(float value) {
+void setHeaterPower(uint8_t value) {
   heaterTriacOutput.setPower(value);
 }
 
-float getHeaterPower() {
+uint8_t getHeaterPower() {
   return heaterTriacOutput.getPower();
 }
 
-void setPumpPower(float value) {
+void setPumpPower(uint8_t value) {
   pumpTriacOutput.setPower(value);
 }
 
-float getPumpPower() {
+uint8_t getPumpPower() {
   return pumpTriacOutput.getPower();
 }
 

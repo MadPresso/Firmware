@@ -7,6 +7,7 @@ private:
   int gpio;
   unsigned int counter;
   unsigned int value;
+  uint8_t currentPower;
 
 public:
   TriacOutput(int gpio);
@@ -19,6 +20,6 @@ public:
   void timerHandler();
 
   // setValue() sets the triac output as float value between 0.f and 1.f
-  void setPower(float power);
-  float getPower() { return 0; }
+  void setPower(uint8_t power);
+  uint8_t getPower() { return currentPower; }
 };

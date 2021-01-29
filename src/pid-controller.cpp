@@ -3,64 +3,89 @@
 
 // See https://en.wikipedia.org/wiki/PID_controller
 
-PIDController::PIDController(float scale) : outputScale(scale), target(0.f) {
+PIDController::PIDController() : target(0.f) {
   reset();
 }
 
 void PIDController::reset() {
   prevMillis = 0;
   prevError = 0;
-  prevMillis = millis();
   integral = 0;
+  prevMillis = millis();
 }
 
 void ICACHE_RAM_ATTR PIDController::setTarget(float _target) {
-  target = _target;
+  target = 90.0;
+}
+
+void PIDController::clampToOutput(float *f) {
+  if (*f < outputMin)
+    *f = outputMin;
+
+  if (*f > outputMax)
+    *f = outputMax;
 }
 
 void PIDController::setParams(float _kp, float _ki, float _kd) {
-  kp = _kp;
-  ki = _ki;
-  kd = _kd;
+  // kp = _kp / 100.0;
+  // ki = _ki / 100.0;
+  // kd = _kd / 100.0;
+
+  kp = 5;
+  ki = 0.4;
+  kd = 64; //64;
+
+  outputMin = 0;
+  outputMax = 255;
 }
 
-#define CLAMP(_v,_min,_max) \
-  { if ((_v) > (_max))      \
-      (_v) = (_max);        \
-    else if ((_v) < (_min)) \
-      (_v) = (_min);        \
-  }
+void PIDController::setBoostPercentage(float factor) {
+  bootPercentage = factor;
+}
 
 int PIDController::compute(float measured) {
   unsigned long now;
-  signed long dt;
-  float error, derivative, val;
+  signed long dti;
+  float dt, error, derivative;
+  float val;
 
   now = millis();
 
   // overflow?
   if (now < prevMillis)
-    dt = (ULONG_MAX - prevMillis) + now;
+    dti = (ULONG_MAX - prevMillis) + now;
   else
-    dt = now - prevMillis;
+    dti = now - prevMillis;
 
   prevMillis = now;
 
-  if (dt == 0)
-    return 0.f;
+  if (dti == 0)
+    return outputMin;
+
+  dt = dti / 1000.0;
 
   error = target - measured;
-  integral += error * dt;
-  // CLAMP(integral, 0.f, 1.f);
 
-  derivative = (error - prevError) / dt;
-  val = (kp * error) + (ki * integral) + (kd * derivative);
+  val = kp * error;
+  if (error > 10) {
+    val *= 2;
+    integral = 0;
+  } else {
+    integral += error * dt;
+    clampToOutput(&integral);
 
-//  printf("[measured %f, prevError %f] (kp (%f) * error (%f)) + (ki (%f) * integral (%f)) + (kd (%f) * derivative (%f)) = %f\n",
-//         measured, prevError, kp, error, ki, integral, kd, derivative, val);
+    derivative = (error - prevError) / dt;
 
-  val *= outputScale;
+    val += (ki * integral) + (kd * derivative);
+    val += bootPercentage * float(outputMax);
+  }
+
+  clampToOutput(&val);
+
+  Serial.printf("[target %.2f measured %.2f, prevError %.2f] (kp %.2f * error %.2f) + (ki %.2f * integral %.2f) + (kd %.2f * derivative %.2f) = %.2f\n",
+         target, measured, prevError, kp, error, ki, integral, kd, derivative, val);
+
   prevError = error;
 
-  return val;
+  return (unsigned) val;
 }
