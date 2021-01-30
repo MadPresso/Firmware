@@ -8,7 +8,7 @@ ShotTimer::ShotTimer(Config *config) : config(config) {
 }
 
 void ShotTimer:: start() {
-  prevMillis = millis();
+  ticker.reset();
   durationSeconds = 0;
 
   if (config->pumpControlEnabled && config->pumpControlSeconds > 0) {
@@ -43,20 +43,13 @@ void ShotTimer:: tick() {
   if (!active)
     return;
 
-  unsigned long now = millis();
-  signed long dti;
+  ticker.tick();
+  float dt = ticker.elapsed() / 1000.0;
 
-  // overflow?
-  if (now < prevMillis)
-    dti = (ULONG_MAX - prevMillis) + now;
-  else
-    dti = now - prevMillis;
-
-  if (dti < 100)
+  if (dt < 0.1)
     return;
 
-  prevMillis = now;
-  float dt = dti / 1000.0;
+  ticker.reset();
   durationSeconds += dt;
 
   Serial.printf("duration %.2f\n", durationSeconds);

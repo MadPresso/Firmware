@@ -3,15 +3,17 @@
 
 // See https://en.wikipedia.org/wiki/PID_controller
 
-PIDController::PIDController() : target(0.f) {
+PIDController::PIDController(int min, int max) {
+  target = 0;
+  outputMin = min;
+  outputMax = max;
   reset();
 }
 
 void PIDController::reset() {
-  prevMillis = 0;
+  ticker.reset();
   prevError = 0;
   integral = 0;
-  prevMillis = millis();
 }
 
 void ICACHE_RAM_ATTR PIDController::setTarget(float _target) {
@@ -32,37 +34,24 @@ void PIDController::setParams(float _kp, float _ki, float _kd) {
   // kd = _kd / 100.0;
 
   kp = 5;
-  ki = 0.4;
+  ki = 0.6;
   kd = 64; //64;
-
-  outputMin = 0;
-  outputMax = 255;
 }
 
 void PIDController::setBoostPercentage(float factor) {
-  bootPercentage = factor;
+  boostPercentage = factor;
 }
 
 int PIDController::compute(float measured) {
-  unsigned long now;
-  signed long dti;
   float dt, error, derivative;
   float val;
 
-  now = millis();
+  ticker.tick();
+  dt = ticker.elapsed() / 1000.0;
+  ticker.reset();
 
-  // overflow?
-  if (now < prevMillis)
-    dti = (ULONG_MAX - prevMillis) + now;
-  else
-    dti = now - prevMillis;
-
-  prevMillis = now;
-
-  if (dti == 0)
+  if (dt == 0)
     return outputMin;
-
-  dt = dti / 1000.0;
 
   error = target - measured;
 
@@ -70,20 +59,26 @@ int PIDController::compute(float measured) {
   if (error > 10) {
     val *= 2;
     integral = 0;
+    integralInit = false;
   } else {
-    integral += error * dt;
-    clampToOutput(&integral);
+    if (integralInit) {
+      integral += error * dt;
+      clampToOutput(&integral);
+    }
+
+    if (error <= 0)
+      integralInit = true;
 
     derivative = (error - prevError) / dt;
 
     val += (ki * integral) + (kd * derivative);
-    val += bootPercentage * float(outputMax);
+    val += boostPercentage * float(outputMax);
   }
 
   clampToOutput(&val);
 
-  Serial.printf("[target %.2f measured %.2f, prevError %.2f] (kp %.2f * error %.2f) + (ki %.2f * integral %.2f) + (kd %.2f * derivative %.2f) = %.2f\n",
-         target, measured, prevError, kp, error, ki, integral, kd, derivative, val);
+//  Serial.printf("[target %.2f measured %.2f, prevError %.2f, integralInit %d] (kp %.2f * error %.2f) + (ki %.2f * integral %.2f) + (kd %.2f * derivative %.2f) = %.2f\n",
+//         target, measured, prevError, integralInit, kp, error, ki, integral, kd, derivative, val);
 
   prevError = error;
 

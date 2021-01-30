@@ -5,7 +5,8 @@
 class Config {
 public:
   // Machine config
-  unsigned int pollingIntervalMs;
+  std::string deviceName;
+  unsigned int pollingIntervalSeconds;
 
   // Shot config
   float brewTemperature;

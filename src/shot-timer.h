@@ -2,7 +2,7 @@
 
 #include "config.h"
 #include "ac-power.h"
-
+#include "ticker.h"
 class ShotTimer {
 public:
   ShotTimer(Config *config);
@@ -13,8 +13,8 @@ public:
 
 private:
   Config *config;
+  Ticker ticker;
   bool active;
-  unsigned long prevMillis;
   float pumpDeltaPerSecond;
   float pumpCurrent;
   float durationSeconds;

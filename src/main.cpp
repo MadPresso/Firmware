@@ -2,7 +2,7 @@
 #include <ArduinoJson.h>
 #include <ESP8266WebServer.h>
 #include <LittleFS.h>
-#include <ADC101C.h>
+#include <Wire.h>
 
 #include "ac-power.h"
 #include "config.h"
@@ -10,32 +10,18 @@
 #include "pid-controller.h"
 #include "pins.h"
 #include "shot-timer.h"
+#include "temperature.h"
 #include "time-series.h"
 
 static ESP8266WebServer httpServer(80);
 
-static NetworkManager networkManager;
-static PIDController pid;
-static TimeSeries temperatureHistory;
+static PIDController pid(0, 255);
+static TemperatureReader temperatureReader;
+//static TimeSeries temperatureHistory;
 static Config config;
-static ADC101C adc;
-static bool adcInitialized;
+static NetworkManager networkManager(&config);
 static ShotTimer shotTimer(&config);
-
-float readTemperature() {
-  if (!adcInitialized)
-    return 0;
-
-  uint16_t highest = adc.highest();
-  uint16_t lowest = adc.lowest();
-  uint16_t value = (highest + lowest) / 2;
-  int mV = map(value, 0, 1023, 0, 3300);
-
-  // LM35DT has 10mV/°C
-  float f = float(mV) / 10.0;
-
-  return f;
-}
+static Ticker measurementTicker;
 
 void ICACHE_RAM_ATTR shotSwitchHandler(void) {
   bool on = !digitalRead(PIN_SHOT_SENSOR);
@@ -87,7 +73,7 @@ void httpGetStatus(void) {
   StaticJsonDocument<CAPACITY> doc;
 
   JsonObject object = doc.to<JsonObject>();
-  object["temperature"] = readTemperature();
+  object["temperature"] = temperatureReader.current();
   object["targetTemperature"] = pid.currentTarget();
   object["heaterPowerPercentage"] = int(float(getHeaterPower()) / 2.55);
 
@@ -98,8 +84,8 @@ void httpGetStatus(void) {
 
 void httpGetTemperatures(void) {
   String *output = new String;
-  temperatureHistory.toJson(*output);
-  httpServer.send(200, "application/json", *output);
+  // temperatureHistory.toJson(*output);
+  // httpServer.send(200, "application/json", *output);
   delete output;
 }
 
@@ -115,9 +101,9 @@ void setup() {
   Serial.println("CPU Frequency = " + String(F_CPU / 1000000) + " MHz");
 
   Wire.begin(D2, D1);
-  adcInitialized = adc.begin(&Wire, 0x50);
-  if (adcInitialized)
-    adc.setMode(ADC101C_MODE_AUTO_512);
+
+  temperatureReader.begin();
+  measurementTicker.reset();
 
   pinMode(PIN_LED, OUTPUT);
   setLED(false);
@@ -149,37 +135,19 @@ void setup() {
   Serial.println("Initialization completed");
 }
 
-static int lastMeasurement = 0;
-
-#define TEMP_MEASUREMENTS 20
-static float temperatures[TEMP_MEASUREMENTS];
-unsigned int temperatureIndex = 0;
-
 void loop() {
   networkManager.tick();
   httpServer.handleClient();
   shotTimer.tick();
+  temperatureReader.tick();
+  measurementTicker.tick();
 
-  unsigned int now = millis();
-
-  if (now - lastMeasurement > 50) {
-    temperatures[temperatureIndex] = readTemperature();
-    temperatureIndex++;
-    temperatureIndex %= TEMP_MEASUREMENTS;
-    lastMeasurement = now;
-
-    if (temperatureIndex == 0) {
-      float temperature = 0;
-
-      for (int n = 0; n < TEMP_MEASUREMENTS; n++)
-        temperature += temperatures[temperatureIndex];
-
-      temperature /= TEMP_MEASUREMENTS;
-
-      float heaterValue = pid.compute(temperature);
-      setHeaterPower(heaterValue);
-      Serial.printf("Temperature %.2f  heaterValue %.2f\n", temperature, heaterValue);
-      // temperatureHistory.push(temperature);
-    }
+  if (measurementTicker.elapsed() > 1000) {
+//    float heaterValue = pid.compute(temperature);
+    float temperature = temperatureReader.current();
+    setHeaterPower(0);
+    Serial.printf("Temperature %.2f\n", temperature);
+    // temperatureHistory.push(temperature);
+    measurementTicker.reset();
   }
 }

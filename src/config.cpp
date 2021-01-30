@@ -7,15 +7,29 @@ static const size_t CAPACITY = JSON_OBJECT_SIZE(16);
 
 Config::Config() {
   // default config
+  deviceName = "MadPresso";
+  pollingIntervalSeconds = 1000;
+
+  brewTemperature = 95.0;
+  steamTemperature = 130.0;
+
+  shotTimerEnabled = false;
+  shotTimerSeconds = 25;
+
+  preInfusionEnabled = false;
+  preInfusionValveClosed = true;
+  preInfusionPumpSeconds = 3;
+  preInfusionPauseSeconds = 3;
+
+  pumpControlEnabled = false;
+  pumpControlSeconds = 10;
+  pumpControlPercentageStart = 80;
+  pumpControlPercentageEnd = 100;
+
   pidP = 23;
   pidI = 5;
   pidD = 128;
-  pollingIntervalMs = 1000;
-
-  brewTemperature = 42.0;
-  steamTemperature = 130.0;
-
-  pumpControlEnabled = true;
+  pidShotBoostPercentage = 50;
 }
 
 bool ICACHE_RAM_ATTR Config::read(FS &fs) {
@@ -26,7 +40,6 @@ bool ICACHE_RAM_ATTR Config::read(FS &fs) {
 
   String s = f.readString();
   bool ret = fromJson(s);
-
   f.close();
 
   return ret;
@@ -41,7 +54,6 @@ ICACHE_RAM_ATTR bool Config::write(FS &fs) {
   String output;
   toJson(output);
   f.write(output.c_str());
-
   f.close();
 
   return true;
@@ -57,7 +69,8 @@ bool Config::fromJson(const String &s) {
     return false;
   }
 
-  // pollingIntervalMs = doc["pollingIntervalMs"];
+  // deviceName = doc["deviceName"];
+  // pollingIntervalSeconds = doc["pollingIntervalSeconds"];
 
   brewTemperature = doc["brewTemperature"];
   steamTemperature = doc["steamTemperature"];
@@ -87,7 +100,7 @@ void Config::toJson(String &s) {
   StaticJsonDocument<CAPACITY> doc;
 
   JsonObject object = doc.to<JsonObject>();
-  // object["pollingIntervalMs"] = pollingIntervalMs;
+  // object["pollingIntervalSeconds"] = pollingIntervalSeconds;
 
   object["brewTemperature"] = brewTemperature;
   object["steamTemperature"] = steamTemperature;

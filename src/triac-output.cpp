@@ -63,6 +63,9 @@ void TriacOutput::setPower(uint8_t power)
 
 void ICACHE_RAM_ATTR TriacOutput::timerHandler()
 {
+  if (currentPower == 0)
+    return;
+
   if (counter > 0 && --counter == 0)
     digitalWrite(gpio, HIGH);
 }

@@ -1,22 +1,10 @@
 #pragma once
 
 #include <Arduino.h>
-
+#include "ticker.h"
 class PIDController {
-private:
-  unsigned long prevMillis;
-  float integral;
-  float prevError;
-  float target;
-  float kp, ki, kd;
-  float bootPercentage;
-  int outputScale;
-  int outputMin, outputMax;
-
-  void clampToOutput(float *f);
-
 public:
-  PIDController();
+  PIDController(int min, int max);
 
   void reset();
   void setTarget(float target);
@@ -24,4 +12,18 @@ public:
   int compute(float measured);
   void setParams(float _kp, float _ki, float _kd);
   void setBoostPercentage(float factor);
+
+private:
+  Ticker ticker;
+  float integral;
+  float prevError;
+  float target;
+  float kp, ki, kd;
+  float boostPercentage;
+  int outputScale;
+  int outputMin, outputMax;
+
+  bool integralInit;
+
+  void clampToOutput(float *f);
 };
