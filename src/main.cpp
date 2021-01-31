@@ -136,11 +136,11 @@ void setup() {
 }
 
 void loop() {
-  networkManager.tick();
-  httpServer.handleClient();
   shotTimer.tick();
+  networkManager.tick();
   temperatureReader.tick();
   measurementTicker.tick();
+  httpServer.handleClient();
 
   if (measurementTicker.elapsed() > 1000) {
 //    float heaterValue = pid.compute(temperature);

@@ -25,5 +25,5 @@ private:
 
   bool integralInit;
 
-  void clampToOutput(float *f);
+  void clampToOutput(float *f, float max);
 };

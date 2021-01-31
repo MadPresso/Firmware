@@ -16,16 +16,16 @@ void PIDController::reset() {
   integral = 0;
 }
 
-void ICACHE_RAM_ATTR PIDController::setTarget(float _target) {
-  target = 90.0;
+void ICACHE_RAM_ATTR PIDController::setTarget(float celcius) {
+  target = celcius;
 }
 
-void PIDController::clampToOutput(float *f) {
+void PIDController::clampToOutput(float *f, float max) {
   if (*f < outputMin)
     *f = outputMin;
 
-  if (*f > outputMax)
-    *f = outputMax;
+  if (*f > max)
+    *f = max;
 }
 
 void PIDController::setParams(float _kp, float _ki, float _kd) {
@@ -33,9 +33,9 @@ void PIDController::setParams(float _kp, float _ki, float _kd) {
   // ki = _ki / 100.0;
   // kd = _kd / 100.0;
 
-  kp = 5;
-  ki = 0.6;
-  kd = 64; //64;
+  kp = 10;
+  ki = 0.25; //0.6;
+  kd = 300; //3; //64;
 }
 
 void PIDController::setBoostPercentage(float factor) {
@@ -56,26 +56,16 @@ int PIDController::compute(float measured) {
   error = target - measured;
 
   val = kp * error;
-  if (error > 10) {
-    val *= 2;
-    integral = 0;
-    integralInit = false;
-  } else {
-    if (integralInit) {
-      integral += error * dt;
-      clampToOutput(&integral);
-    }
 
-    if (error <= 0)
-      integralInit = true;
+  integral += error * dt;
+  clampToOutput(&integral, outputMax * 0.6);
 
-    derivative = (error - prevError) / dt;
+  derivative = (error - prevError) / dt;
 
-    val += (ki * integral) + (kd * derivative);
-    val += boostPercentage * float(outputMax);
-  }
+  val += (ki * integral) + (kd * derivative);
+//  val += boostPercentage * float(outputMax);
 
-  clampToOutput(&val);
+  clampToOutput(&val, outputMax);
 
 //  Serial.printf("[target %.2f measured %.2f, prevError %.2f, integralInit %d] (kp %.2f * error %.2f) + (ki %.2f * integral %.2f) + (kd %.2f * derivative %.2f) = %.2f\n",
 //         target, measured, prevError, integralInit, kp, error, ki, integral, kd, derivative, val);
