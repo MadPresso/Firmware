@@ -5,4 +5,5 @@
 .vscode/ipch
 src/credentials.h
 data
+*.log
 

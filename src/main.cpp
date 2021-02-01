@@ -15,7 +15,7 @@
 
 static ESP8266WebServer httpServer(80);
 
-static PIDController pid(0, 255);
+static PIDController pid(0, AC_OUTPUT_MAX);
 static TemperatureReader temperatureReader;
 //static TimeSeries temperatureHistory;
 static Config config;
@@ -28,11 +28,10 @@ void ICACHE_RAM_ATTR shotSwitchHandler(void) {
   Serial.printf("Shot switch: %d\n", on);
 
   if (on) {
-    pid.setBoostPercentage(config.pidShotBoostPercentage / 100.0);
     shotTimer.start();
   } else {
-    pid.setBoostPercentage(0);
     shotTimer.stop();
+    pid.reset();
   }
 }
 
@@ -75,7 +74,7 @@ void httpGetStatus(void) {
   JsonObject object = doc.to<JsonObject>();
   object["temperature"] = temperatureReader.current();
   object["targetTemperature"] = pid.currentTarget();
-  object["heaterPowerPercentage"] = int(float(getHeaterPower()) / 2.55);
+  object["heaterPowerPercentage"] = int(float(getHeaterPower()) / (AC_OUTPUT_MAX/100.0));
 
   String output;
   serializeJsonPretty(doc, output);
@@ -95,7 +94,6 @@ void setLED(bool on) {
 
 void setup() {
   Serial.begin(115200);
-  
   delay(2000);
 
   Serial.println("CPU Frequency = " + String(F_CPU / 1000000) + " MHz");
@@ -108,11 +106,7 @@ void setup() {
   pinMode(PIN_LED, OUTPUT);
   setLED(false);
 
-  setValve(0);
-  setHeaterPower(0);
-
   LittleFS.begin();
-
   config.read(LittleFS);
 
   pid.setParams(config.pidP, config.pidI, config.pidD);
@@ -129,8 +123,7 @@ void setup() {
 
   attachInterrupt(digitalPinToInterrupt(PIN_SHOT_SENSOR), shotSwitchHandler, CHANGE);
   attachInterrupt(digitalPinToInterrupt(PIN_STEAM_SENSOR), steamSwitchHandler, CHANGE);
-
-  initACPower();
+  setHeaterTargetTemperature();
 
   Serial.println("Initialization completed");
 }
@@ -143,11 +136,16 @@ void loop() {
   httpServer.handleClient();
 
   if (measurementTicker.elapsed() > 1000) {
-//    float heaterValue = pid.compute(temperature);
     float temperature = temperatureReader.current();
-    setHeaterPower(0);
-    Serial.printf("Temperature %.2f\n", temperature);
     // temperatureHistory.push(temperature);
+
+    int heaterValue = shotTimer.isActive() ?
+      config.heaterPercentageDuringShot * (AC_OUTPUT_MAX/100.0) :
+      pid.compute(temperature);
+
+    setHeaterPower(heaterValue);
+
+    Serial.printf("%.2f %.2f %d\n", temperature, pid.currentTarget(), heaterValue);
     measurementTicker.reset();
   }
 }

@@ -26,10 +26,10 @@ Config::Config() {
   pumpControlPercentageStart = 80;
   pumpControlPercentageEnd = 100;
 
-  pidP = 23;
-  pidI = 5;
-  pidD = 128;
-  pidShotBoostPercentage = 50;
+  pidP = 12;;
+  pidI = 0.35;
+  pidD = 200;
+  heaterPercentageDuringShot = 50;
 }
 
 bool ICACHE_RAM_ATTR Config::read(FS &fs) {
@@ -91,7 +91,7 @@ bool Config::fromJson(const String &s) {
   pidP = doc["pidP"];
   pidI = doc["pidI"];
   pidD = doc["pidD"];
-  pidShotBoostPercentage = doc["pidShotBoostPercentage"];
+  heaterPercentageDuringShot = doc["heaterPercentageDuringShot"];
 
   return true;
 }
@@ -121,7 +121,7 @@ void Config::toJson(String &s) {
   object["pidP"] = pidP;
   object["pidI"] = pidI;
   object["pidD"] = pidD;
-  object["pidShotBoostPercentage"] = pidShotBoostPercentage;
+  object["heaterPercentageDuringShot"] = heaterPercentageDuringShot;
 
   serializeJsonPretty(doc, s);
 }

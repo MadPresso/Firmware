@@ -26,7 +26,7 @@ public:
   float pumpControlSeconds;
 
   float pidP, pidI, pidD;
-  float pidShotBoostPercentage;
+  float heaterPercentageDuringShot;
 
   Config();
   bool read(FS &fs);

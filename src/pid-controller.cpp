@@ -29,13 +29,9 @@ void PIDController::clampToOutput(float *f, float max) {
 }
 
 void PIDController::setParams(float _kp, float _ki, float _kd) {
-  // kp = _kp / 100.0;
-  // ki = _ki / 100.0;
-  // kd = _kd / 100.0;
-
-  kp = 10;
-  ki = 0.25; //0.6;
-  kd = 300; //3; //64;
+  kp = _kp;
+  ki = _ki;
+  kd = _kd;
 }
 
 void PIDController::setBoostPercentage(float factor) {

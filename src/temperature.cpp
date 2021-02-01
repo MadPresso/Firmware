@@ -2,13 +2,13 @@
 
 #include "temperature.h"
 
-TemperatureReader::TemperatureReader() : kalman(0.1, 10000.0) {}
+TemperatureReader::TemperatureReader() : kalman(0.1, 8000.0) {}
 
 void TemperatureReader::begin() {
   adcInitialized = adc.begin(&Wire, 0x50);
   
   if (adcInitialized) {
-    // adc.setMode(ADC101C_MODE_AUTO_512);
+    adc.setMode(ADC101C_MODE_AUTO_512);
     temperature = kalman.compute(read());
   } else {
     Serial.print("Cannot initialize ADC!");
@@ -21,7 +21,7 @@ float TemperatureReader::read() {
 
   uint16_t highest = adc.highest();
   uint16_t lowest = adc.lowest();
-  uint16_t value = adc.read(); //(highest + lowest) / 2;
+  uint16_t value = (highest + lowest) / 2;
   int mV = map(value, 0, 1023, 0, 3300);
 
   // LM35DT gives us 10mV/°C

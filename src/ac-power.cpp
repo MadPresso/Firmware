@@ -4,7 +4,6 @@
 
 #include "ac-power.h"
 #include "pins.h"
-#include "triac-output.h"
 
 static ESP8266Timer timer;
 static int timerWaitZC = 5;
@@ -44,7 +43,9 @@ void initACPower() {
   attachInterrupt(digitalPinToInterrupt(PIN_ZC_DETECT), zeroCrossHandler, CHANGE);
 
   pinMode(PIN_VALVE_TRIAC, OUTPUT);
-  digitalWrite(PIN_VALVE_TRIAC, LOW);
+
+  setValve(0);
+  setHeaterPower(0);
 }
 
 void setHeaterPower(uint8_t value) {
