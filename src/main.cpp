@@ -4,6 +4,9 @@
 #include <LittleFS.h>
 #include <Wire.h>
 
+#define ESP_DRD_USE_LITTLEFS true
+#include <ESP_DoubleResetDetector.h>
+
 #include "ac-power.h"
 #include "config.h"
 #include "network-manager.h"
@@ -14,12 +17,12 @@
 #include "time-series.h"
 
 static ESP8266WebServer httpServer(80);
-
-static PIDController pid(0, AC_OUTPUT_MAX);
+static DoubleResetDetector drd(8, 0);
+static PIDController pidController(0, AC_OUTPUT_MAX);
 static TemperatureReader temperatureReader;
 //static TimeSeries temperatureHistory;
 static Config config;
-static NetworkManager networkManager(&config);
+static NetworkManager networkManager;
 static ShotTimer shotTimer(&config);
 static Ticker measurementTicker;
 
@@ -31,7 +34,7 @@ void ICACHE_RAM_ATTR shotSwitchHandler(void) {
     shotTimer.start();
   } else {
     shotTimer.stop();
-    pid.reset();
+    pidController.reset();
   }
 }
 
@@ -39,9 +42,9 @@ void ICACHE_RAM_ATTR setHeaterTargetTemperature(void) {
   bool steam = digitalRead(PIN_STEAM_SENSOR);
 
   if (steam)
-    pid.setTarget(config.steamTemperature);
+    pidController.setTarget(config.steamTemperature);
   else
-    pid.setTarget(config.brewTemperature);
+    pidController.setTarget(config.brewTemperature);
 }
 
 void ICACHE_RAM_ATTR steamSwitchHandler(void) {
@@ -51,29 +54,13 @@ void ICACHE_RAM_ATTR steamSwitchHandler(void) {
 
 // HTTP callbacks
 
-void httpGetConfig(void) {
-  String output;
-  config.toJson(output);
-  httpServer.send(200, "application/json", output);
-}
-
-void httpPostConfig(void) {
-  const String &body = httpServer.arg("plain");
-  bool result = config.fromJson(body);
-  
-  if (result)
-    result = config.write(LittleFS);
-
-  httpServer.send(result ? 200 : 500);
-}
-
 void httpGetStatus(void) {
   const size_t CAPACITY = JSON_OBJECT_SIZE(3);
   StaticJsonDocument<CAPACITY> doc;
 
   JsonObject object = doc.to<JsonObject>();
-  object["temperature"] = temperatureReader.current();
-  object["targetTemperature"] = pid.currentTarget();
+  object["temperature"] = int(temperatureReader.current() * 10) / 10.0;
+  object["targetTemperature"] = pidController.currentTarget();
   object["heaterPowerPercentage"] = int(float(getHeaterPower()) / (AC_OUTPUT_MAX/100.0));
 
   String output;
@@ -86,6 +73,48 @@ void httpGetTemperatures(void) {
   // temperatureHistory.toJson(*output);
   // httpServer.send(200, "application/json", *output);
   delete output;
+}
+
+void httpGetMachineConfig(void) {
+  String output;
+  config.toJson(output);
+  httpServer.send(200, "application/json", output);
+}
+
+void httpPostMachineConfig(void) {
+  const String &body = httpServer.arg("plain");
+  bool result = config.fromJson(body);
+  
+  if (result) {
+    shotTimer.stop();
+    setHeaterPower(0);
+    result = config.write(LittleFS);
+    pidController.setParams(config.pidP, config.pidI, config.pidD, config.pidIntegralWindupLimit);
+    setHeaterTargetTemperature();
+  }
+
+  httpServer.send(result ? 200 : 500);
+}
+
+void httpGetNetworkConfig(void) {
+  String output;
+  networkManager.configAsJSON(output);
+  httpServer.send(200, "application/json", output);
+}
+
+void httpPostNetworkConfig(void) {
+  const String &body = httpServer.arg("plain");
+  shotTimer.stop();
+  setHeaterPower(0);
+  bool result = networkManager.applyFromJSON(body);
+
+  httpServer.send(result ? 200 : 500);
+}
+
+void httpGetWifis(void) {
+  String output;
+  networkManager.scanWifis(output);
+  httpServer.send(200, "application/json", output);
 }
 
 void setLED(bool on) {
@@ -107,19 +136,31 @@ void setup() {
   setLED(false);
 
   LittleFS.begin();
-  config.read(LittleFS);
 
-  pid.setParams(config.pidP, config.pidI, config.pidD);
-  setHeaterTargetTemperature();
+  if (drd.detectDoubleReset()) {
+    Serial.println("Double-reset detected. Resetting config.");
+    networkManager.forceAPMode();
+    config.write(LittleFS);
+  } else {
+    config.read(LittleFS);
+  }
 
-  httpServer.on("/api/v1/config", HTTP_GET, httpGetConfig);
-  httpServer.on("/api/v1/config", HTTP_POST, httpPostConfig);
+  pidController.setParams(config.pidP, config.pidI, config.pidD, config.pidIntegralWindupLimit);
+  initACPower();
+
+  String apName = "MadPresso " + String(ESP.getChipId(), HEX);
+  // networkManager.setHostname(config.deviceName.c_str());
+  networkManager.autoConnect(apName);
+
   httpServer.on("/api/v1/status", HTTP_GET, httpGetStatus);
+  httpServer.on("/api/v1/config/machine", HTTP_GET, httpGetMachineConfig);
+  httpServer.on("/api/v1/config/machine", HTTP_POST, httpPostMachineConfig);
+  httpServer.on("/api/v1/config/network", HTTP_GET, httpGetNetworkConfig);
+  httpServer.on("/api/v1/config/network", HTTP_POST, httpPostNetworkConfig);
+  httpServer.on("/api/v1/wifis", HTTP_GET, httpGetWifis);
   httpServer.on("/api/v1/temperatures", HTTP_GET, httpGetTemperatures);
   httpServer.serveStatic("/", LittleFS, "/webroot/", "");
   httpServer.begin();
-
-  networkManager.begin();
 
   attachInterrupt(digitalPinToInterrupt(PIN_SHOT_SENSOR), shotSwitchHandler, CHANGE);
   attachInterrupt(digitalPinToInterrupt(PIN_STEAM_SENSOR), steamSwitchHandler, CHANGE);
@@ -129,6 +170,7 @@ void setup() {
 }
 
 void loop() {
+  drd.loop();
   shotTimer.tick();
   networkManager.tick();
   temperatureReader.tick();
@@ -141,11 +183,11 @@ void loop() {
 
     int heaterValue = shotTimer.isActive() ?
       config.heaterPercentageDuringShot * (AC_OUTPUT_MAX/100.0) :
-      pid.compute(temperature);
+      pidController.compute(temperature);
 
     setHeaterPower(heaterValue);
 
-    Serial.printf("%.2f %.2f %d\n", temperature, pid.currentTarget(), heaterValue);
+    Serial.printf("%.2f %.2f %d\n", temperature, pidController.currentTarget(), heaterValue);
     measurementTicker.reset();
   }
 }

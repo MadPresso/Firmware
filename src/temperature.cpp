@@ -11,7 +11,7 @@ void TemperatureReader::begin() {
     adc.setMode(ADC101C_MODE_AUTO_512);
     temperature = kalman.compute(read());
   } else {
-    Serial.print("Cannot initialize ADC!");
+    Serial.println("Cannot initialize ADC!");
   }
 }
 

@@ -1,14 +1,19 @@
 #pragma once
 
-#include "config.h"
+#include <DNSServer.h>
 
 class NetworkManager {
 public:
-  NetworkManager(Config *config);
   void tick();
-  void begin();
+  void autoConnect(const String &ssid);
+  void connectToWifi(const String &ssid, const String &passphrase);
+  void forceAPMode();
+  bool isAPMode();
+  void scanWifis(String &output);
+  void configAsJSON(String &output);
+  bool applyFromJSON(String input);
 
 private:
-  Config *config;
-  bool wifiConnecting;
+  void printStatus();
+  DNSServer dnsServer;
 };

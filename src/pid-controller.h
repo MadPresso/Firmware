@@ -10,8 +10,7 @@ public:
   void setTarget(float target);
   float currentTarget() { return target; }
   int compute(float measured);
-  void setParams(float _kp, float _ki, float _kd);
-  void setBoostPercentage(float factor);
+  void setParams(float _kp, float _ki, float _kd, float _integralWindupLimit);
 
 private:
   Ticker ticker;
@@ -19,11 +18,11 @@ private:
   float prevError;
   float target;
   float kp, ki, kd;
-  float boostPercentage;
+  float integralWindupLimit;
   int outputScale;
   int outputMin, outputMax;
 
   bool integralInit;
 
-  void clampToOutput(float *f, float max);
+  void clamp(float *f, float max);
 };

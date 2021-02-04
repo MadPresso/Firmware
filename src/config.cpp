@@ -3,7 +3,7 @@
 #include "config.h"
 
 static const char *filename = "config.json";
-static const size_t CAPACITY = JSON_OBJECT_SIZE(16);
+static const size_t CAPACITY = JSON_OBJECT_SIZE(17);
 
 Config::Config() {
   // default config
@@ -29,7 +29,8 @@ Config::Config() {
   pidP = 12;;
   pidI = 0.35;
   pidD = 200;
-  heaterPercentageDuringShot = 50;
+  pidIntegralWindupLimit = 0.6;
+  heaterPercentageDuringShot = 100;
 }
 
 bool ICACHE_RAM_ATTR Config::read(FS &fs) {
@@ -91,6 +92,7 @@ bool Config::fromJson(const String &s) {
   pidP = doc["pidP"];
   pidI = doc["pidI"];
   pidD = doc["pidD"];
+  pidIntegralWindupLimit = doc["pidIntegralWindupLimit"];
   heaterPercentageDuringShot = doc["heaterPercentageDuringShot"];
 
   return true;
@@ -121,6 +123,7 @@ void Config::toJson(String &s) {
   object["pidP"] = pidP;
   object["pidI"] = pidI;
   object["pidD"] = pidD;
+  object["pidIntegralWindupLimit"] = pidIntegralWindupLimit;
   object["heaterPercentageDuringShot"] = heaterPercentageDuringShot;
 
   serializeJsonPretty(doc, s);

@@ -26,6 +26,7 @@ public:
   float pumpControlSeconds;
 
   float pidP, pidI, pidD;
+  float pidIntegralWindupLimit;
   float heaterPercentageDuringShot;
 
   Config();
