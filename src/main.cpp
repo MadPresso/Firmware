@@ -16,35 +16,31 @@
 #include "temperature.h"
 #include "time-series.h"
 
+static Config config;
 static ESP8266WebServer httpServer(80);
 static DoubleResetDetector drd(8, 0);
 static PIDController pidController(0, AC_OUTPUT_MAX);
 static TemperatureReader temperatureReader;
 //static TimeSeries temperatureHistory;
-static Config config;
 static NetworkManager networkManager;
-static ShotTimer shotTimer(&config);
+static ShotTimer shotTimer(&config, &pidController);
 static Ticker measurementTicker;
 
 void ICACHE_RAM_ATTR shotSwitchHandler(void) {
   bool on = !digitalRead(PIN_SHOT_SENSOR);
   Serial.printf("Shot switch: %d\n", on);
 
-  if (on) {
+  if (on)
     shotTimer.start();
-  } else {
+  else
     shotTimer.stop();
-    pidController.reset();
-  }
 }
 
 void ICACHE_RAM_ATTR setHeaterTargetTemperature(void) {
   bool steam = !digitalRead(PIN_STEAM_SENSOR);
-
-  if (steam)
-    pidController.setTarget(config.steamTemperature);
-  else
-    pidController.setTarget(config.brewTemperature);
+  pidController.setTarget(steam ?
+                            config.steamTemperature :
+                            config.brewTemperature);
 }
 
 void ICACHE_RAM_ATTR steamSwitchHandler(void) {

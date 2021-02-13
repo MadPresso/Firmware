@@ -3,7 +3,7 @@
 
 #include "shot-timer.h"
 
-ShotTimer::ShotTimer(Config *config) : config(config) {
+ShotTimer::ShotTimer(Config *config, PIDController *pid) : config(config), pid(pid) {
   stop();
 }
 
@@ -36,6 +36,7 @@ void ShotTimer:: start() {
 void ShotTimer:: stop() {
   setValve(false);
   setPumpPower(0);
+  pid->reset();
   active = false;
 }
 

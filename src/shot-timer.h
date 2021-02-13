@@ -2,10 +2,11 @@
 
 #include "config.h"
 #include "ac-power.h"
+#include "pid-controller.h"
 #include "ticker.h"
 class ShotTimer {
 public:
-  ShotTimer(Config *config);
+  ShotTimer(Config *config, PIDController *pid);
   void start();
   void stop();
   void tick();
@@ -13,6 +14,7 @@ public:
 
 private:
   Config *config;
+  PIDController *pid;
   Ticker ticker;
   bool active;
   float pumpDeltaPerSecond;
