@@ -139,18 +139,18 @@ void setup() {
 
   if (drd.detectDoubleReset()) {
     Serial.println("Double-reset detected. Resetting config.");
-    networkManager.forceAPMode();
+    String apName = "MadPresso " + String(ESP.getChipId(), HEX);
+    networkManager.forceAPMode(apName);
     config.write(LittleFS);
   } else {
     config.read(LittleFS);
   }
 
+  // networkManager.setHostname(config.deviceName.c_str());
+  networkManager.autoConnect();
+
   pidController.setParams(config.pidP, config.pidI, config.pidD, config.pidIntegralWindupLimit);
   initACPower();
-
-  String apName = "MadPresso " + String(ESP.getChipId(), HEX);
-  // networkManager.setHostname(config.deviceName.c_str());
-  networkManager.autoConnect(apName);
 
   httpServer.on("/api/v1/status", HTTP_GET, httpGetStatus);
   httpServer.on("/api/v1/config/machine", HTTP_GET, httpGetMachineConfig);

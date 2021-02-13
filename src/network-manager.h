@@ -5,9 +5,9 @@
 class NetworkManager {
 public:
   void tick();
-  void autoConnect(const String &ssid);
+  void autoConnect();
   void connectToWifi(const String &ssid, const String &passphrase);
-  void forceAPMode();
+  void forceAPMode(const String &ssid);
   bool isAPMode();
   void scanWifis(String &output);
   void configAsJSON(String &output);

@@ -31,9 +31,7 @@ void NetworkManager::printStatus() {
   }
 }
 
-void ICACHE_RAM_ATTR NetworkManager::autoConnect(const String &ssid) {
-  WiFi.softAP(ssid);
-
+void ICACHE_RAM_ATTR NetworkManager::autoConnect() {
   dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
   dnsServer.start(53, "*", WiFi.softAPIP());
 
@@ -44,8 +42,9 @@ void ICACHE_RAM_ATTR NetworkManager::autoConnect(const String &ssid) {
   printStatus();
 }
 
-void NetworkManager::forceAPMode() {
+void NetworkManager::forceAPMode(const String &ssid) {
   WiFi.disconnect();
+  WiFi.softAP(ssid);
   WiFi.mode(WIFI_AP);
 }
 
@@ -98,21 +97,21 @@ void NetworkManager::scanWifis(String &output) {
 }
 
 void NetworkManager::connectToWifi(const String &ssid, const String &passphrase) {
-  WiFi.mode(WIFI_AP_STA);
+  WiFi.mode(WIFI_STA);
   Serial.printf("Attempting to connect to Wifi SSID %s\n", ssid.c_str());
   WiFi.begin(ssid, passphrase);
   wl_status_t status = wl_status_t(WiFi.waitForConnectResult());
   if (status != WL_CONNECTED) {
     Serial.println("Connection failed. Switching to AP mode");
     WiFi.mode(WIFI_AP);
-  } else {
-    MDNS.begin("MadPresso");
   }
+
+  MDNS.begin("MadPresso");
 
   printStatus();
 }
 
-void ICACHE_RAM_ATTR NetworkManager::tick() {
+void NetworkManager::tick() {
   dnsServer.processNextRequest();
   MDNS.update();
 }
