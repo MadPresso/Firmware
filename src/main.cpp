@@ -39,7 +39,7 @@ void ICACHE_RAM_ATTR shotSwitchHandler(void) {
 }
 
 void ICACHE_RAM_ATTR setHeaterTargetTemperature(void) {
-  bool steam = digitalRead(PIN_STEAM_SENSOR);
+  bool steam = !digitalRead(PIN_STEAM_SENSOR);
 
   if (steam)
     pidController.setTarget(config.steamTemperature);
