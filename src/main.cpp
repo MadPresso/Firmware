@@ -9,6 +9,7 @@
 
 #include "ac-power.h"
 #include "config.h"
+#include "digital-switch.h"
 #include "network-manager.h"
 #include "pid-controller.h"
 #include "pins.h"
@@ -26,26 +27,22 @@ static NetworkManager networkManager;
 static ShotTimer shotTimer(&config, &pidController);
 static Ticker measurementTicker;
 
-void ICACHE_RAM_ATTR shotSwitchHandler(void) {
-  bool on = !digitalRead(PIN_SHOT_SENSOR);
-  Serial.printf("Shot switch: %d\n", on);
+static DigitalSwitch shotSwitch(PIN_SHOT_SENSOR);
+static DigitalSwitch steamSwitch(PIN_STEAM_SENSOR);
 
-  if (on)
-    shotTimer.start();
-  else
-    shotTimer.stop();
+void ICACHE_RAM_ATTR shotSwitchHandler(void) {
+  shotSwitch.interrupt();
 }
 
-void ICACHE_RAM_ATTR setHeaterTargetTemperature(void) {
+void ICACHE_RAM_ATTR steamSwitchHandler(void) {
+  steamSwitch.interrupt();
+}
+
+void setHeaterTargetTemperature(void) {
   bool steam = !digitalRead(PIN_STEAM_SENSOR);
   pidController.setTarget(steam ?
                             config.steamTemperature :
                             config.brewTemperature);
-}
-
-void ICACHE_RAM_ATTR steamSwitchHandler(void) {
-  Serial.printf("Steam switch: %d\n", digitalRead(PIN_STEAM_SENSOR));
-  setHeaterTargetTemperature();
 }
 
 // HTTP callbacks
@@ -172,6 +169,21 @@ void loop() {
   temperatureReader.tick();
   measurementTicker.tick();
   httpServer.handleClient();
+
+  bool state;
+
+  if (shotSwitch.changed(&state)) {
+    Serial.printf("Shot switch: %d\n", !state);
+
+    if (!state)
+      shotTimer.start();
+    else
+      shotTimer.stop();
+  }
+
+  if (steamSwitch.changed(&state)) {
+      setHeaterTargetTemperature();
+  }
 
   if (measurementTicker.elapsed() > 1000) {
     float temperature = temperatureReader.current();
