@@ -56,8 +56,6 @@ int PIDController::compute(float measured) {
   derivative = (error - prevError) / dt;
 
   val += (ki * integral) + (kd * derivative);
-//  val += boostPercentage * float(outputMax);
-
   clamp(&val, outputMax);
 
 //  Serial.printf("[target %.2f measured %.2f, prevError %.2f, integralInit %d] (kp %.2f * error %.2f) + (ki %.2f * integral %.2f) + (kd %.2f * derivative %.2f) = %.2f\n",
