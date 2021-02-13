@@ -8,5 +8,5 @@ class KalmanFilter {
 
 public:
   KalmanFilter(float q, float r);
-  float compute(float intput);
+  float estimate(float intput);
 };

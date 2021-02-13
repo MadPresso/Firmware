@@ -2,14 +2,14 @@
 
 #include "temperature.h"
 
-TemperatureReader::TemperatureReader() : kalman(0.1, 8000.0) {}
+TemperatureReader::TemperatureReader() : kalman(0.1, 1000.0) {}
 
 void TemperatureReader::begin() {
   adcInitialized = adc.begin(&Wire, 0x50);
   
   if (adcInitialized) {
     adc.setMode(ADC101C_MODE_AUTO_512);
-    temperature = kalman.compute(read());
+    temperature = kalman.estimate(read());
   } else {
     Serial.println("Cannot initialize ADC!");
   }
@@ -37,7 +37,7 @@ void TemperatureReader::tick() {
 
   if (ticker.elapsed() >= 50) {
     float v = read();
-    temperature = kalman.compute(v);
+    temperature = kalman.estimate(v);
     // Serial.printf("%d %.2f %.2f\n", t, v, temperature);
     ticker.reset();
     // t++;

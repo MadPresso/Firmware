@@ -5,7 +5,7 @@
 KalmanFilter::KalmanFilter(float q, float r) :
   q(q), r(r), pLast(0), xEstLast(0), primed(false) {}
 
-float KalmanFilter::compute(float input) {
+float KalmanFilter::estimate(float input) {
   float k, p, pTemp, xEst;
 
   if (!primed) {
