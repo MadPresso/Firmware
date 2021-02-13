@@ -64,12 +64,12 @@ void httpGetStatus(void) {
   httpServer.send(200, "application/json", output);
 }
 
-void httpGetTemperatures(void) {
-  String *output = new String;
-  // temperatureHistory.toJson(*output);
-  // httpServer.send(200, "application/json", *output);
-  delete output;
-}
+// void httpGetTemperatures(void) {
+//   String *output = new String;
+//   temperatureHistory.toJson(*output);
+//   httpServer.send(200, "application/json", *output);
+//   delete output;
+// }
 
 void httpGetMachineConfig(void) {
   String output;
@@ -154,7 +154,7 @@ void setup() {
   httpServer.on("/api/v1/config/network", HTTP_GET, httpGetNetworkConfig);
   httpServer.on("/api/v1/config/network", HTTP_POST, httpPostNetworkConfig);
   httpServer.on("/api/v1/wifis", HTTP_GET, httpGetWifis);
-  httpServer.on("/api/v1/temperatures", HTTP_GET, httpGetTemperatures);
+  // httpServer.on("/api/v1/temperatures", HTTP_GET, httpGetTemperatures);
   httpServer.serveStatic("/", LittleFS, "/webroot/", "");
   httpServer.begin();
 
