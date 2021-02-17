@@ -21,8 +21,8 @@ public:
     // overflow?
     if (tickMillis < resetMillis)
      return (ULONG_MAX - resetMillis) + tickMillis;
-    else
-      return tickMillis - resetMillis;
+
+    return tickMillis - resetMillis;
   }
 
 private:

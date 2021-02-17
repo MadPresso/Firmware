@@ -8,9 +8,6 @@ ShotTimer::ShotTimer(Config *config, PIDController *pid) : config(config), pid(p
 }
 
 void ShotTimer:: start() {
-  ticker.reset();
-  durationSeconds = 0;
-
   if (config->pumpControlEnabled && config->pumpControlSeconds > 0) {
     float start = (config->pumpControlPercentageStart * 255.0) / 100.0;
     float end = (config->pumpControlPercentageEnd * 255.0) / 100.0;
@@ -30,6 +27,10 @@ void ShotTimer:: start() {
   }
 
   setPumpPower(pumpCurrent);
+
+  ticker.tick();
+  ticker.reset();
+  durationSeconds = 0;
   active = true;
 }
 
