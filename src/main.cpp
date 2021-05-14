@@ -126,11 +126,14 @@ void setup() {
   measurementTicker.reset();
 
   pinMode(PIN_LED, OUTPUT);
+  pinMode(PIN_SHOT_SENSOR, INPUT_PULLUP);
+  pinMode(PIN_STEAM_SENSOR, INPUT_PULLUP);
+
   setLED(false);
 
   LittleFS.begin();
 
-  if (drd.detectDoubleReset()) {
+  if (drd.detectDoubleReset() && !shotSwitch.state()) {
     Serial.println("Double-reset detected. Resetting config.");
     String apName = "MadPresso " + String(ESP.getChipId(), HEX);
     networkManager.forceAPMode(apName);

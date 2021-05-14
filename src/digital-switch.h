@@ -9,6 +9,10 @@ public:
     irqPending = true;
   }
 
+  bool state() {
+    return digitalRead(gpio) == HIGH;
+  }
+
   bool changed(bool *state) {
     noInterrupts();
     bool _irqPending = irqPending;
