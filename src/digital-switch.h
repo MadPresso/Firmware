@@ -2,15 +2,17 @@
 
 class DigitalSwitch {
 public:
-  DigitalSwitch(int gpio) :
-    gpio(gpio), first(true), irqPending(false) {}
+  DigitalSwitch(int gpio, int onState) :
+    gpio(gpio), onState(onState), first(true), irqPending(false) {}
 
   void ICACHE_RAM_ATTR interrupt() {
     irqPending = true;
   }
 
-  bool state() {
-    return digitalRead(gpio) == HIGH;
+  bool on() {
+    bool b;
+    changed(&b);
+    return b;
   }
 
   bool changed(bool *state) {
@@ -19,13 +21,10 @@ public:
     irqPending = false;
     interrupts();
 
-    if (!_irqPending && !first)
-      return false;
+    *state = digitalRead(gpio) == onState;
 
-    *state = digitalRead(gpio) == HIGH;
-
-    if (*state == lastReportedState && !first)
-      return false;
+    if (!first && (!_irqPending || (*state == lastReportedState)))
+        return false;
 
     lastReportedState = *state;
     first = false;
@@ -35,6 +34,7 @@ public:
 
 private:
   int gpio;
+  int onState;
   bool first;
   bool irqPending;
   bool lastReportedState;

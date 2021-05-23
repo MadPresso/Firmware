@@ -27,8 +27,8 @@ static NetworkManager networkManager;
 static ShotTimer shotTimer(&config, &pidController);
 static Ticker measurementTicker;
 
-static DigitalSwitch shotSwitch(PIN_SHOT_SENSOR);
-static DigitalSwitch steamSwitch(PIN_STEAM_SENSOR);
+static DigitalSwitch shotSwitch(PIN_SHOT_SENSOR, LOW);
+static DigitalSwitch steamSwitch(PIN_STEAM_SENSOR, LOW);
 
 void ICACHE_RAM_ATTR shotSwitchHandler(void) {
   shotSwitch.interrupt();
@@ -38,11 +38,12 @@ void ICACHE_RAM_ATTR steamSwitchHandler(void) {
   steamSwitch.interrupt();
 }
 
-void setHeaterTargetTemperature(void) {
-  bool steam = !digitalRead(PIN_STEAM_SENSOR);
-  pidController.setTarget(steam ?
-                            config.steamTemperature :
-                            config.brewTemperature);
+void setHeaterTargetTemperature(bool steam) {
+  float target = steam ?
+                config.steamTemperature :
+                config.brewTemperature;
+  Serial.printf("Setting %s temperature: %.2f\n", steam ? "STEAM" : "BREW", target);
+  pidController.setTarget(target);
 }
 
 // HTTP callbacks
@@ -83,7 +84,7 @@ void httpPostMachineConfig(void) {
     setHeaterPower(0);
     result = config.write(LittleFS);
     pidController.setParams(config.pidP, config.pidI, config.pidD, config.pidIntegralWindupLimit);
-    setHeaterTargetTemperature();
+    setHeaterTargetTemperature(steamSwitch.on());
   }
 
   httpServer.send(result ? 200 : 500);
@@ -133,7 +134,9 @@ void setup() {
 
   LittleFS.begin();
 
-  if (drd.detectDoubleReset() && !shotSwitch.state()) {
+  if (shotSwitch.on() &&
+      steamSwitch.on() &&
+      drd.detectDoubleReset()) {
     Serial.println("Double-reset detected. Resetting config.");
     String apName = "MadPresso " + String(ESP.getChipId(), HEX);
     networkManager.forceAPMode(apName);
@@ -160,7 +163,7 @@ void setup() {
 
   attachInterrupt(digitalPinToInterrupt(PIN_SHOT_SENSOR), shotSwitchHandler, CHANGE);
   attachInterrupt(digitalPinToInterrupt(PIN_STEAM_SENSOR), steamSwitchHandler, CHANGE);
-  setHeaterTargetTemperature();
+  setHeaterTargetTemperature(steamSwitch.on());
 
   Serial.println("Initialization completed");
 }
@@ -176,17 +179,16 @@ void loop() {
   bool state;
 
   if (shotSwitch.changed(&state)) {
-    Serial.printf("Shot switch: %d\n", !state);
+    Serial.printf("Shot switch: %d\n", state);
 
-    if (!state)
+    if (state)
       shotTimer.start();
     else
       shotTimer.stop();
   }
 
-  if (steamSwitch.changed(&state)) {
-      setHeaterTargetTemperature();
-  }
+  if (steamSwitch.changed(&state))
+    setHeaterTargetTemperature(state);
 
   if (measurementTicker.elapsed() > 1000) {
     float temperature = temperatureReader.current();
